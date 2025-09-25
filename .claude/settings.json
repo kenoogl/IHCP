@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(git status)",
+      "Bash(git add .)",
+      "Read(package.json)",
+      "Read(README.md)",
+      "Read(src/**/*.js)",
+      "Write(src/**/*.js)",
+      "Write(docs/*.md)"
+    ],
+    "deny": [
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(rm -rf *)",
+      "Read(.env)",
+      "Read(config/secrets.json)"
+    ]
+  },
+  "editor": {
+    "autoApplyDiffs": false,
+    "showLineNumbers": true,
+    "highlightChanges": true
+  },
+  "ai": {
+    "responseLanguage": "japanese",
+    "codeStyle": "readable",
+    "commentStyle": "detailed"
+  }
+}
+
