@@ -1,13 +1,8 @@
 #!/usr/bin/env julia
 # -*- coding: utf-8 -*-
 """
-Julia版フルスケール実行前の動作確認テスト
+Julia版フルスケール実行前動作確認テスト（修正版）
 """
-
-include("cgm_solver.jl")
-
-using Printf
-using Statistics
 
 println("=" ^ 60)
 println("Julia版フルスケール実行前動作確認")
@@ -36,7 +31,7 @@ for file in required_files
         println("  ✅ $file")
     else
         println("  ❌ $file")
-        global all_files_ok = false
+        all_files_ok = false
     end
 end
 
@@ -46,29 +41,37 @@ if !all_files_ok
 end
 
 # =======================================
+# 基本機能読み込み
+# =======================================
+try
+    include("IHCP_CGM_Julia.jl")
+    println("\n✅ 基本機能読み込み成功")
+catch e
+    println("\n❌ 基本機能読み込みエラー: $e")
+    exit(1)
+end
+
+# =======================================
 # 実データ読み込みテスト
 # =======================================
 println("\n【実データ読み込みテスト】")
 try
-    global T_measure = npzread("T_measure_700um_1ms.npy")
-    global nt_total, ni_total, nj_total = size(T_measure)
+    using NPZ
+    T_measure = npzread("T_measure_700um_1ms.npy")
+    nt_total, ni_total, nj_total = size(T_measure)
 
     println("  ✅ 実データ読み込み成功")
     println("    データ形状: $nt_total × $ni_total × $nj_total")
-
-    # 温度範囲計算（変数スコープ問題回避）
-    temp_min = minimum(T_measure)
-    temp_max = maximum(T_measure)
-    temp_min_str = @sprintf("%.2f", temp_min)
-    temp_max_str = @sprintf("%.2f", temp_max)
-    println("    温度範囲: $(temp_min_str) - $(temp_max_str) K")
+    println("    温度範囲: $(minimum(T_measure):.2f) - $(maximum(T_measure):.2f) K")
 
     file_size_mb = stat("T_measure_700um_1ms.npy").size / 1024^2
-    file_size_str = @sprintf("%.1f", file_size_mb)
-    println("    ファイルサイズ: $(file_size_str) MB")
+    println("    ファイルサイズ: $(file_size_mb:.1f) MB")
 
     global T_test_data = T_measure
     global data_loaded = true
+    global nt_data = nt_total
+    global ni_data = ni_total
+    global nj_data = nj_total
 catch e
     println("  ❌ 実データ読み込みエラー: $e")
     global data_loaded = false
@@ -80,17 +83,16 @@ if !data_loaded
 end
 
 # =======================================
-# 小規模CGMテスト
+# 小規模CGMテスト準備
 # =======================================
 println("\n【小規模CGMテスト】")
 
 # テスト用パラメータ
 test_ni, test_nj = 10, 10  # 小さな領域
 test_nt = 11  # 10時間ステップ
-dt = 0.001  # 1ms (時間ステップ)
 
 # テスト用データ切り出し
-global T_region_test = T_test_data[1:test_nt, 1:test_ni, 1:test_nj]
+T_region_test = T_test_data[1:test_nt, 1:test_ni, 1:test_nj]
 
 # 初期温度設定
 T0_test = zeros(test_ni, test_nj, nz)
@@ -104,39 +106,41 @@ q_init_test = zeros(test_nt-1, test_ni, test_nj)
 println("  テスト条件:")
 println("    格子: $test_ni × $test_nj × $nz")
 println("    時間ステップ: $test_nt")
-temp_min_init = minimum(T0_test)
-temp_max_init = maximum(T0_test)
-temp_min_init_str = @sprintf("%.2f", temp_min_init)
-temp_max_init_str = @sprintf("%.2f", temp_max_init)
-println("    初期温度範囲: $(temp_min_init_str) - $(temp_max_init_str) K")
+println("    初期温度範囲: $(minimum(T0_test):.2f) - $(maximum(T0_test):.2f) K")
+
+# =======================================
+# CGM関数読み込み
+# =======================================
+try
+    include("cgm_solver.jl")
+    println("  ✅ CGMソルバー読み込み成功")
+catch e
+    println("  ❌ CGMソルバー読み込みエラー: $e")
+    exit(1)
+end
 
 # CGMテスト実行
 println("\n  CGM最適化テスト実行中...")
 test_start_time = time()
 
 try
-    global q_opt_test, T_fin_test, J_hist_test = global_CGM_time(
+    q_opt_test, T_fin_test, J_hist_test = global_CGM_time(
         T0_test, T_region_test, q_init_test,
         dx, dy, dz, dz_b, dz_t, dt/1000,  # ms → s変換
         rho, cp_coeffs, k_coeffs;
         CGM_iteration=10  # テスト用に制限
     )
 
-    global test_elapsed = time() - test_start_time
+    test_elapsed = time() - test_start_time
 
     println("  ✅ CGMテスト成功")
-    test_elapsed_str = @sprintf("%.2f", test_elapsed)
-    println("    実行時間: $(test_elapsed_str)秒")
+    println("    実行時間: $(test_elapsed:.2f)秒")
     println("    反復数: $(length(J_hist_test))")
-    final_objective = @sprintf("%.2e", J_hist_test[end])
-    println("    最終目的関数: $(final_objective)")
+    println("    最終目的関数: $(J_hist_test[end]:.2e)")
     println("    熱流束統計:")
-    q_min = @sprintf("%.0f", minimum(q_opt_test))
-    q_max = @sprintf("%.0f", maximum(q_opt_test))
-    q_mean = @sprintf("%.0f", mean(q_opt_test))
-    println("      最小値: $(q_min) W/m²")
-    println("      最大値: $(q_max) W/m²")
-    println("      平均値: $(q_mean) W/m²")
+    println("      最小値: $(minimum(q_opt_test):.0f) W/m²")
+    println("      最大値: $(maximum(q_opt_test):.0f) W/m²")
+    println("      平均値: $(mean(q_opt_test):.0f) W/m²")
 
     global cgm_test_ok = true
 
@@ -159,7 +163,7 @@ if cgm_test_ok
     # フルスケールパラメータ
     full_ni, full_nj = 80, 100
     full_window_size = 50
-    num_windows = div(nt_total - full_window_size, 10) + 1
+    num_windows = div(nt_data - full_window_size, 10) + 1
     cgm_iterations_full = 100
 
     full_operations_per_window = full_ni * full_nj * nz * (full_window_size - 1) * cgm_iterations_full
@@ -167,25 +171,20 @@ if cgm_test_ok
     total_estimated_time = estimated_time_per_window * num_windows
 
     println("  テスト性能:")
-    rate_str = @sprintf("%.0f", test_rate)
-    println("    処理レート: $(rate_str) 格子点×ステップ/秒")
+    println("    処理レート: $(test_rate:.0f) 格子点×ステップ/秒")
     println("    テスト規模: $test_points 格子点")
 
     println("  フルスケール推定:")
     println("    処理ウィンドウ数: $num_windows")
-    time_per_window_min = @sprintf("%.1f", estimated_time_per_window/60)
-    println("    ウィンドウあたり推定時間: $(time_per_window_min)分")
-    total_time_hours = @sprintf("%.1f", total_estimated_time/3600)
-    println("    総推定実行時間: $(total_time_hours)時間")
+    println("    ウィンドウあたり推定時間: $(estimated_time_per_window/60:.1f)分")
+    println("    総推定実行時間: $(total_estimated_time/3600:.1f)時間")
 
     if total_estimated_time < 3600
         println("    ⏱️  推定: 1時間以内で完了")
     elseif total_estimated_time < 8*3600
-        practical_hours = @sprintf("%.1f", total_estimated_time/3600)
-        println("    ⏰ 推定: $(practical_hours)時間で完了（実用的）")
+        println("    ⏰ 推定: $(total_estimated_time/3600:.1f)時間で完了（実用的）")
     else
-        long_hours = @sprintf("%.1f", total_estimated_time/3600)
-        println("    ⚠️  推定: $(long_hours)時間（長時間実行）")
+        println("    ⚠️  推定: $(total_estimated_time/3600:.1f)時間（長時間実行）")
     end
 end
 

@@ -30,7 +30,8 @@ from scipy.sparse.linalg import LinearOperator,cg
 from scipy.sparse import diags
 
 # === Reading and Poly-Fitting Thermal Properties for SUS304 === #
-Thermal_properties_file_path = "D:/HT_Calculation_Python\\thermal_properties_SUS304\\metal_thermal_properties.csv"
+Thermal_properties_file_path = "metal_thermal_properties.csv"
+# Thermal_properties_file_path = "D:/HT_Calculation_Python\\thermal_properties_SUS304\\metal_thermal_properties.csv"
 # Thermal_properties_file_path = "C:/HT_Calculation_Python\\thermal_properties_SUS304\\metal_thermal_properties.csv"
 sus304_data = pd.read_csv(Thermal_properties_file_path)
 
@@ -148,6 +149,14 @@ dz_t[:-1] = z_centers[1:] - z_centers[:-1]           # Other Top component_delta
 dz_b = np.zeros(nz)                                  # Bottom component_delta_z_b
 dz_b[0] = np.inf                                     # Bottom component_delta_z_b for Bottom-most CV
 dz_b[1:] = z_centers[1:] - z_centers[:-1]            # Other Bottom component_delta_z_b
+
+# debug
+print("z_faces : ", z_faces)
+print("z_centers : ", z_centers)
+print("dz : ", dz)
+print("dz_t : ", dz_t)
+print("dz_b : ", dz_b)
+#
 
 '''
 === Direct problem solver  ===
@@ -643,7 +652,8 @@ def sliding_window_CGM_q_saving(
 '''       
 start_All = time.time()
 
-T_measure_K = np.load(r"D:/HT_Calculation_Python/IR_Temperature_data/T_measure_700um_1ms.npy")
+T_measure_K = np.load(r"T_measure_700um_1ms.npy")
+# T_measure_K = np.load(r"D:/HT_Calculation_Python/IR_Temperature_data/T_measure_700um_1ms.npy")
 # T_measure_K = np.load(r"C:/HT_Calculation_Python/IR_Temperature_data/T_measure_700um_1ms.npy")
 dt = 0.001
        

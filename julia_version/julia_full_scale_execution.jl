@@ -12,6 +12,7 @@ include("cgm_solver.jl")
 
 using Printf
 using Dates
+using Statistics  # mean関数のために必要
 
 println("=" ^ 80)
 println("Julia版 IHCP-CGM ソルバー フルスケール実行")

@@ -144,6 +144,12 @@ dz_b = zeros(nz)
 dz_b[1] = Inf    # 最下面CV
 dz_b[2:end] = z_centers[2:end] - z_centers[1:end-1]
 
+println("z_faces : ", z_faces)
+println("z_centers : ", z_centers)
+println("dz : ", dz)
+println("dz_t : ", dz_t)
+println("dz_b : ", dz_b)
+
 println("Julia版 IHCP-CGM ソルバー初期化完了")
 println("格子パラメータ:")
 println("  nz = $nz, dx = $dx, dy = $dy, Lz = $Lz")

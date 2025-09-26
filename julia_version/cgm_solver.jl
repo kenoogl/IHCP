@@ -66,7 +66,7 @@ function global_CGM_time(T_init::Array{Float64,3}, Y_obs::Array{Float64,3}, q_in
     eta = 1e-4    # 平均相対下降閾値
     min_iter = 10 # 最小反復数
 
-    eps = 0.0
+    eps = 1e-15  # 数値安定性のための最小値（Julia版では必要）
 
     println("CGM最適化開始")
     println(@sprintf("格子サイズ: %d×%d×%d, 時間ステップ: %d", ni, nj, nk, nt))
@@ -158,14 +158,22 @@ function global_CGM_time(T_init::Array{Float64,3}, Y_obs::Array{Float64,3}, q_in
         )
 
         # Step 7: 最適ステップサイズ探索
-        Sp = dT[2:end, :, :, 1]  # 感度表面温度
+        Sp = dT[1:(end-1), :, :, 1]  # 感度表面温度（Python版のdT[1:, :, :, bottom_idx]に対応）
         numerator = tensor_dot(res_T, Sp)
         denominator = tensor_dot(Sp, Sp)
 
-        beta = numerator / (denominator + eps)
+        # 分母が極小の場合の処理（Julia版では必要）
+        min_denominator = 1e-20
+        if denominator < min_denominator
+            println(@sprintf("  [警告] 分母が極小 %.2e < %.2e at iter %d", denominator, min_denominator, it))
+            # 小さな勾配方向ステップを使用
+            beta = 1e-6
+        else
+            beta = numerator / (denominator + eps)
+        end
 
-        # ステップサイズ制限
-        beta_max = 1e8
+        # ステップサイズ制限（Python版より保守的にJulia版では調整）
+        beta_max = 1e6  # Julia版では数値的により安定
         if it == 1 && abs(beta) > beta_max
             println(@sprintf("  [警告] βクリップ: %.2e => %.2e", beta, sign(beta) * beta_max))
             beta = clamp(beta, -beta_max, beta_max)
